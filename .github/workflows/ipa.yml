@@ -1,0 +1,36 @@
+name: Build iPhone app (IPA)
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build FriendMap.ipa
+        run: |
+          set -euo pipefail
+          APP=build/Payload/FriendMap.app
+          mkdir -p "$APP/www" Assets.xcassets/AppIcon.appiconset
+          cp index.html "$APP/www/index.html"
+          cp icon-1024.png Assets.xcassets/AppIcon.appiconset/icon-1024.png
+          echo '{"info":{"author":"xcode","version":1}}' > Assets.xcassets/Contents.json
+          echo '{"images":[{"filename":"icon-1024.png","idiom":"universal","platform":"ios","size":"1024x1024"}],"info":{"author":"xcode","version":1}}' > Assets.xcassets/AppIcon.appiconset/Contents.json
+          xcrun -sdk iphoneos swiftc -parse-as-library -target arm64-apple-ios15.0 -O App.swift -o "$APP/FriendMap"
+          cp Info.plist "$APP/Info.plist"
+          xcrun actool Assets.xcassets --compile "$APP" --platform iphoneos \
+            --minimum-deployment-target 15.0 --app-icon AppIcon \
+            --output-partial-info-plist build/partial.plist
+          /usr/libexec/PlistBuddy -c "Merge build/partial.plist" "$APP/Info.plist"
+          plutil -convert binary1 "$APP/Info.plist"
+          printf 'APPL????' > "$APP/PkgInfo"
+          cd build && zip -qry ../FriendMap.ipa Payload
+          ls -la ../FriendMap.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FriendMap-ipa
+          path: FriendMap.ipa
