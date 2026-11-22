@@ -1,0 +1,33 @@
+name: Build iPhone app (IPA)
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build FriendMap.ipa
+        run: |
+          set -euo pipefail
+          APP=build/Payload/FriendMap.app
+          mkdir -p "$APP"
+          xcrun -sdk iphoneos swiftc -parse-as-library -target arm64-apple-ios15.0 -O App.swift -o "$APP/FriendMap"
+          cp -R www "$APP/www"
+          cp Info.plist "$APP/Info.plist"
+          xcrun actool Assets.xcassets --compile "$APP" --platform iphoneos \
+            --minimum-deployment-target 15.0 --app-icon AppIcon \
+            --output-partial-info-plist build/partial.plist
+          /usr/libexec/PlistBuddy -c "Merge build/partial.plist" "$APP/Info.plist"
+          plutil -convert binary1 "$APP/Info.plist"
+          printf 'APPL????' > "$APP/PkgInfo"
+          cd build && zip -qry ../FriendMap.ipa Payload
+          ls -la ../FriendMap.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FriendMap-ipa
+          path: FriendMap.ipa
